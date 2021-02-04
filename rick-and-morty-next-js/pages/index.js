@@ -1,3 +1,4 @@
+import { useState, useEffect } from "react";
 import Head from "next/head";
 import styles from "../styles/Home.module.css";
 
@@ -14,7 +15,49 @@ export async function getServerSideProps() {
 }
 
 export default function Home({ data }) {
-	const { results = [] } = data;
+	const { info, results: defaultResults = [] } = data;
+	const [results, updateResults] = useState(defaultResults);
+	const [page, updatePage] = useState({
+		...info,
+		current: defaultEndpoint,
+	});
+
+	const { current } = page;
+
+	useEffect(() => {
+		if (current === defaultEndpoint) return;
+
+		async function request() {
+			const res = await fetch(current);
+			const nextData = await res.json();
+
+			updatePage({
+				current,
+				...nextData.info,
+			});
+
+			if (!nextData.info?.prev) {
+				updateResults(nextData.results);
+				return;
+			}
+
+			updateResults((prev) => {
+				return [...prev, ...nextData.results];
+			});
+		}
+
+		request();
+	}, [current]);
+
+	function handleLoadMore() {
+		updatePage((prev) => {
+			return {
+				...prev,
+				current: page?.next,
+			};
+		});
+	}
+
 	return (
 		<div className={styles.container}>
 			<Head>
@@ -42,6 +85,9 @@ export default function Home({ data }) {
 						);
 					})}
 				</ul>
+				<p>
+					<button onClick={handleLoadMore}>Load More</button>
+				</p>
 			</main>
 
 			<footer className={styles.footer}>
